@@ -715,6 +715,12 @@ export const createVendor = async (req: Request, res: Response) => {
       ...data,
       businessName: data.businessName || (data as any).name || 'Merchant Store',
       ownerName: data.ownerName || (data as any).contactPerson || 'Merchant Owner',
+      bankAccount: (data as any).bankAccount || (data as any).accountNumber || (data as any).bankDetails?.accountNumber || (req.body as any).bankAccount || (req.body as any).accountNumber || (req.body as any).bankDetails?.accountNumber,
+      accountNumber: (data as any).accountNumber || (data as any).bankAccount || (data as any).bankDetails?.accountNumber || (req.body as any).accountNumber || (req.body as any).bankAccount || (req.body as any).bankDetails?.accountNumber,
+      bankDetails: (data as any).bankDetails || (req.body as any).bankDetails,
+      bankName: (data as any).bankName || (data as any).bankDetails?.bankName || (req.body as any).bankName || (req.body as any).bankDetails?.bankName,
+      ifscCode: (data as any).ifscCode || (data as any).bankDetails?.ifscCode || (req.body as any).ifscCode || (req.body as any).bankDetails?.ifscCode,
+      gstStatus: (data as any).gstStatus || (req.body as any).gstStatus,
       location: {
         address: data.location?.address || `${(data as any).buildingNo ? `${(data as any).buildingNo}, ` : ''}${(data as any).streetName ? `${(data as any).streetName}, ` : ''}${(data as any).postOffice ? `${(data as any).postOffice}, ` : ''}${(data as any).taluk ? `${(data as any).taluk}, ` : ''}${data.district || ''}, ${data.state || ''} - ${data.pincode || ''}`,
         latitude: data.location?.latitude || 0,
@@ -798,7 +804,15 @@ export const createVendor = async (req: Request, res: Response) => {
           $set: {
             vendorId: vendor._id,
             vendor: vendor._id,
-            onboardingStatus: 'COMPLETED'
+            onboardingStatus: 'COMPLETED',
+            state: vendor.state || (vendor as any).assignedState,
+            district: vendor.district || (vendor as any).assignedDistrict,
+            division: (vendor as any).division || (vendor as any).assignedDivision,
+            pincode: vendor.pincode,
+            pincodeCode: vendor.pincode,
+            bankAccount: (vendor as any).bankAccount || (vendor as any).accountNumber || (vendor as any).bankDetails?.accountNumber,
+            bankDetails: (vendor as any).bankDetails,
+            gstStatus: (vendor as any).gstStatus
           }
         });
       } catch (fvErr) {

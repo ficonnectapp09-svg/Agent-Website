@@ -165,18 +165,26 @@ const getFieldVisits = async (req, res) => {
                 { recordedById: agentId },
                 { managerId: agentId }
             ];
-            filter.$and = filter.$and || [];
-            filter.$and.push({ $or: pinConds });
             if (scope.pincode) {
-                filter.$and.push({
+                // Resolve vendors registered under this pincode to match visits linked to them
+                const pinVendors = await Vendor_1.default.find({
                     $or: [
                         { pincode: scope.pincode },
-                        { pincodeCode: scope.pincode },
-                        { 'assignedTerritory.pincode': scope.pincode },
-                        { 'vendor.pincode': scope.pincode }
+                        { 'assignedTerritory.pincode': scope.pincode }
                     ]
-                });
+                }).select('_id').lean();
+                const pinVendorIds = [];
+                for (const pv of pinVendors) {
+                    pinVendorIds.push(pv._id);
+                    pinVendorIds.push(String(pv._id));
+                }
+                pinConds.push({ pincode: scope.pincode }, { pincodeCode: scope.pincode }, { 'assignedTerritory.pincode': scope.pincode });
+                if (pinVendorIds.length > 0) {
+                    pinConds.push({ vendor: { $in: pinVendorIds } }, { vendorId: { $in: pinVendorIds.map(String) } });
+                }
             }
+            filter.$and = filter.$and || [];
+            filter.$and.push({ $or: pinConds });
         }
         else if (scope.role === 'division') {
             const divConds = [
@@ -365,7 +373,7 @@ const getFieldVisits = async (req, res) => {
             FieldVisit_1.default.find(baseKpiFilter).select('interestedStatus interestStatus status').lean(),
             FieldVisit_1.default.find(filter)
                 .populate('agent', 'name email role phone territory assignedTerritory registrationId')
-                .populate('vendor', 'storeName businessName contactPerson phone pincode address district division state')
+                .populate('vendor', 'storeName businessName contactPerson phone pincode address district division state gst gstStatus bankAccount accountNumber bankDetails settlementBank bank')
                 .sort({ createdAt: -1 })
                 .skip((pageNum - 1) * limitNum)
                 .limit(limitNum)
@@ -392,7 +400,7 @@ const getFieldVisits = async (req, res) => {
                 role: v.recordedByRole || v.managerRole || 'pincode',
                 phone: ''
             };
-            const normalizedVendor = v.vendor || {
+            const normalizedVendor = (typeof v.vendor === 'object' && v.vendor) ? v.vendor : {
                 _id: v.vendorId || v.id || v._id,
                 storeName: v.shopName || 'Store Location',
                 businessName: v.shopName || 'Store Location',
@@ -407,6 +415,19 @@ const getFieldVisits = async (req, res) => {
             const isCompleted = ['onboarded', 'completed', 'success', 'approved', 'active'].includes(rawStat) ||
                 (v.vendorId && (v.status === 'Approved' || v.status === 'Active'));
             const isEligibleForResume = isInterested && !isCompleted;
+            const vObj = (typeof v.vendor === 'object' && v.vendor) ? v.vendor : {};
+            const rawBankAcc = v.bankAccount ||
+                v.accountNumber ||
+                v.bankDetails?.accountNumber ||
+                vObj.bankAccount ||
+                vObj.accountNumber ||
+                vObj.bankDetails?.accountNumber ||
+                vObj.settlementBank?.accountNumber ||
+                vObj.bank?.accountNumber ||
+                '';
+            const rawGstStatus = v.gstStatus ||
+                vObj.gstStatus ||
+                (vObj.gst ? 'GST Registered' : (isCompleted ? 'Unregistered' : 'Pending Verification'));
             return {
                 ...v,
                 agent: normalizedAgent,
@@ -415,6 +436,9 @@ const getFieldVisits = async (req, res) => {
                 district: v.district || normalizedVendor.district,
                 division: v.division || normalizedVendor.division,
                 pincode: v.pincode || v.pincodeCode || normalizedVendor.pincode,
+                bankAccount: rawBankAcc ? String(rawBankAcc) : undefined,
+                bankDetails: v.bankDetails || vObj.bankDetails || undefined,
+                gstStatus: rawGstStatus,
                 status: (v.status || '').toLowerCase() === 'started' ? 'in_progress' : v.status,
                 isEligibleForResume,
                 isOnboardingCompleted: isCompleted,
@@ -804,9 +828,24 @@ exports.recordShopVisit = recordShopVisit;
 const getShopVisitById = async (req, res) => {
     try {
         const { id } = req.params;
-        const visit = await FieldVisit_1.default.findById(id).lean();
+        let visit = await FieldVisit_1.default.findById(id)
+            .populate([
+            { path: 'agent', select: 'name email role phone assignedTerritory territory' },
+            { path: 'vendor', select: 'storeName businessName contactPerson phone pincode address district division state gst gstStatus bankAccount accountNumber bankDetails settlementBank bank' }
+        ])
+            .lean();
         if (!visit) {
             return res.status(404).json({ success: false, message: 'Shop visit not found' });
+        }
+        if (visit.vendor && typeof visit.vendor === 'object') {
+            const v = visit.vendor;
+            visit.bankAccount = visit.bankAccount || v.bankAccount || v.accountNumber || v.bankDetails?.accountNumber || v.settlementBank?.accountNumber || v.bank?.accountNumber;
+            visit.bankDetails = visit.bankDetails || v.bankDetails || v.settlementBank || v.bank;
+            visit.gstStatus = visit.gstStatus || v.gstStatus || (v.gst ? 'GST Registered' : 'Unregistered');
+            visit.pincode = visit.pincode || v.pincode;
+            visit.district = visit.district || v.district;
+            visit.division = visit.division || v.division;
+            visit.state = visit.state || v.state;
         }
         return res.status(200).json({ success: true, data: visit, visit });
     }
@@ -828,6 +867,44 @@ const updateShopVisit = async (req, res) => {
         }
         if (req.body.onboardingStatus) {
             updateData.onboardingStatus = req.body.onboardingStatus;
+        }
+        if (req.body.pincode) {
+            updateData.pincode = req.body.pincode;
+            updateData.pincodeCode = req.body.pincode;
+        }
+        if (req.body.district)
+            updateData.district = req.body.district;
+        if (req.body.division)
+            updateData.division = req.body.division;
+        if (req.body.state)
+            updateData.state = req.body.state;
+        if (req.body.bankAccount)
+            updateData.bankAccount = req.body.bankAccount;
+        if (req.body.bankDetails)
+            updateData.bankDetails = req.body.bankDetails;
+        if (req.body.gstStatus)
+            updateData.gstStatus = req.body.gstStatus;
+        if (req.body.vendorId && mongoose_1.default.isValidObjectId(req.body.vendorId)) {
+            const v = await Vendor_1.default.findById(req.body.vendorId).lean();
+            if (v) {
+                if (!updateData.pincode && v.pincode) {
+                    updateData.pincode = v.pincode;
+                    updateData.pincodeCode = v.pincode;
+                }
+                if (!updateData.district && v.district)
+                    updateData.district = v.district;
+                if (!updateData.division && v.division)
+                    updateData.division = v.division;
+                if (!updateData.state && v.state)
+                    updateData.state = v.state;
+                if (!updateData.bankAccount) {
+                    updateData.bankAccount = v.bankAccount || v.accountNumber || v.bankDetails?.accountNumber;
+                }
+                if (!updateData.bankDetails && v.bankDetails)
+                    updateData.bankDetails = v.bankDetails;
+                if (!updateData.gstStatus && v.gstStatus)
+                    updateData.gstStatus = v.gstStatus;
+            }
         }
         const updated = await FieldVisit_1.default.findByIdAndUpdate(id, { $set: updateData }, { new: true }).lean();
         if (!updated) {

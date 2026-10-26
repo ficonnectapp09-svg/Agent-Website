@@ -315,18 +315,30 @@ export const LeaderboardModule: React.FC = () => {
     if (tierTab === 'pincode') {
       return <span className="px-2 py-0.5 bg-slate-700 text-white font-black text-[10px] uppercase rounded shadow-2xs">Pincode Tier</span>;
     }
-    const role = item.role;
+    const role = (item.role || '').toLowerCase();
     switch (role) {
       case 'state':
+      case 'state_agent':
         return <span className="px-2 py-0.5 bg-blue-600 text-white font-black text-[10px] uppercase rounded shadow-2xs">State Agent</span>;
       case 'district':
+      case 'district_agent':
         return <span className="px-2 py-0.5 bg-[#864f19] text-white font-black text-[10px] uppercase rounded shadow-2xs">District Agent</span>;
       case 'division':
-        return <span className="px-2 py-0.5 bg-amber-600 text-white font-black text-[10px] uppercase rounded shadow-2xs">Division Manager</span>;
+      case 'division_agent':
+        return <span className="px-2 py-0.5 bg-amber-600 text-white font-black text-[10px] uppercase rounded shadow-2xs">Division Agent</span>;
       case 'pincode':
+      case 'pincode_agent':
         return <span className="px-2 py-0.5 bg-slate-700 text-white font-black text-[10px] uppercase rounded shadow-2xs">Pincode Agent</span>;
+      case 'division_manager':
+        return <span className="px-2 py-0.5 bg-amber-600 text-white font-black text-[10px] uppercase rounded shadow-2xs">Division Manager</span>;
+      case 'district_manager':
+        return <span className="px-2 py-0.5 bg-[#864f19] text-white font-black text-[10px] uppercase rounded shadow-2xs">District Manager</span>;
+      case 'state_manager':
+        return <span className="px-2 py-0.5 bg-blue-600 text-white font-black text-[10px] uppercase rounded shadow-2xs">State Manager</span>;
+      case 'pincode_manager':
+        return <span className="px-2 py-0.5 bg-slate-700 text-white font-black text-[10px] uppercase rounded shadow-2xs">Pincode Manager</span>;
       default:
-        return <span className="px-2 py-0.5 bg-slate-600 text-white font-black text-[10px] uppercase rounded shadow-2xs">{role || 'Agent'}</span>;
+        return <span className="px-2 py-0.5 bg-slate-600 text-white font-black text-[10px] uppercase rounded shadow-2xs">{item.role || 'Agent'}</span>;
     }
   };
 

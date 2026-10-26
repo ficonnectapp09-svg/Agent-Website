@@ -98,6 +98,8 @@ interface FieldShopVisit {
   longitude?: number;
   gstStatus?: string;
   bankAccount?: string;
+  accountNumber?: string;
+  bankDetails?: any;
   bankIfsc?: string;
 }
 
@@ -209,7 +211,7 @@ export const ReportsModule: React.FC = () => {
   const [kpiCounts, setKpiCounts] = useState({ total: 0, interested: 0, notInterested: 0 });
 
   // Filters for View A
-  const [scopeFilter, setScopeFilter] = useState<string>(isPincodeAgent ? 'self' : 'all');
+  const [scopeFilter, setScopeFilter] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [interestFilter, setInterestFilter] = useState('all');
@@ -1427,7 +1429,21 @@ export const ReportsModule: React.FC = () => {
                 <div>
                   <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 block">Bank Account</span>
                   <p className="text-xs font-bold text-slate-800 mt-0.5">
-                    {selectedVisitAudit.bankAccount ? `•••• •••• •••• ${selectedVisitAudit.bankAccount.slice(-4)}` : 'Not Provided'}
+                    {(() => {
+                      const rawAccount = selectedVisitAudit.bankAccount ||
+                        (selectedVisitAudit.vendor as any)?.bankAccount ||
+                        (selectedVisitAudit.vendor as any)?.accountNumber ||
+                        (selectedVisitAudit.vendor as any)?.bankDetails?.accountNumber ||
+                        (selectedVisitAudit.vendor as any)?.settlementBank?.accountNumber ||
+                        (selectedVisitAudit.vendor as any)?.bank?.accountNumber ||
+                        (selectedVisitAudit as any)?.bankDetails?.accountNumber ||
+                        (selectedVisitAudit as any)?.accountNumber;
+                      const cleanAccount = rawAccount ? String(rawAccount).trim() : '';
+                      if (!cleanAccount) return 'Not Provided';
+                      return cleanAccount.length >= 4
+                        ? `•••• •••• •••• ${cleanAccount.slice(-4)}`
+                        : `•••• ${cleanAccount}`;
+                    })()}
                   </p>
                 </div>
               </div>

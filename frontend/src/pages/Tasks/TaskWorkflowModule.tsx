@@ -183,6 +183,14 @@ export const TaskWorkflowModule: React.FC = () => {
   else if (userRole.includes('division') || userRole.includes('divisional')) userLevel = 'division';
   else if (userRole.includes('pincode')) userLevel = 'pincode';
 
+  const isPincodeFieldAgent = userLevel === 'pincode' && !isAdmin;
+
+  React.useEffect(() => {
+    if (isPincodeFieldAgent && (activeTab === 'created' || activeTab === 'requests')) {
+      setActiveTab('my_tasks');
+    }
+  }, [isPincodeFieldAgent, activeTab]);
+
   const userTerritory = useMemo(() => ({
     state: user?.assignedTerritory?.state || user?.territory?.state || (user as any)?.assignedState || (user as any)?.state || '',
     district: user?.assignedTerritory?.district || user?.territory?.district || (user as any)?.assignedDistrict || (user as any)?.district || '',
@@ -771,29 +779,33 @@ export const TaskWorkflowModule: React.FC = () => {
           My Assigned Tasks
         </button>
 
-        <button
-          onClick={() => setActiveTab('created')}
-          className={`py-3 px-5 text-xs sm:text-sm font-extrabold rounded-t-xl transition cursor-pointer border-b-2 flex items-center gap-2 ${
-            activeTab === 'created'
-              ? 'border-[#864f19] text-[#864f19] bg-white shadow-sm'
-              : 'border-transparent text-slate-500 hover:text-slate-800'
-          }`}
-        >
-          <FileText className="w-4 h-4" />
-          Created / Initiated Tasks
-        </button>
+        {!isPincodeFieldAgent && (
+          <>
+            <button
+              onClick={() => setActiveTab('created')}
+              className={`py-3 px-5 text-xs sm:text-sm font-extrabold rounded-t-xl transition cursor-pointer border-b-2 flex items-center gap-2 ${
+                activeTab === 'created'
+                  ? 'border-[#864f19] text-[#864f19] bg-white shadow-sm'
+                  : 'border-transparent text-slate-500 hover:text-slate-800'
+              }`}
+            >
+              <FileText className="w-4 h-4" />
+              Created / Initiated Tasks
+            </button>
 
-        <button
-          onClick={() => setActiveTab('requests')}
-          className={`py-3 px-5 text-xs sm:text-sm font-extrabold rounded-t-xl transition cursor-pointer border-b-2 flex items-center gap-2 ${
-            activeTab === 'requests'
-              ? 'border-[#864f19] text-[#864f19] bg-white shadow-sm'
-              : 'border-transparent text-slate-500 hover:text-slate-800'
-          }`}
-        >
-          <Send className="w-4 h-4" />
-          {isAdmin ? 'Incoming Requests (Approvals)' : 'My Outgoing Requests'}
-        </button>
+            <button
+              onClick={() => setActiveTab('requests')}
+              className={`py-3 px-5 text-xs sm:text-sm font-extrabold rounded-t-xl transition cursor-pointer border-b-2 flex items-center gap-2 ${
+                activeTab === 'requests'
+                  ? 'border-[#864f19] text-[#864f19] bg-white shadow-sm'
+                  : 'border-transparent text-slate-500 hover:text-slate-800'
+              }`}
+            >
+              <Send className="w-4 h-4" />
+              {isAdmin ? 'Incoming Requests (Approvals)' : 'My Outgoing Requests'}
+            </button>
+          </>
+        )}
 
         <button
           onClick={() => setActiveTab('territory')}

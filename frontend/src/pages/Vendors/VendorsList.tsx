@@ -1831,6 +1831,18 @@ export const VendorsList: React.FC = () => {
             subCategory: wizardData.storeType || 'Services',
             storeType: wizardData.storeType || 'Services',
             gst: wizardData.businessGst || '',
+            gstStatus: wizardData.gstStatus || (wizardData.businessGst ? 'GST Registered' : 'Unregistered'),
+            bankAccount: wizardData.bankDetails?.accountNumber || (wizardData as any).accountNumber || '',
+            accountNumber: wizardData.bankDetails?.accountNumber || (wizardData as any).accountNumber || '',
+            bankName: wizardData.bankDetails?.bankName || (wizardData as any).bankName || '',
+            ifscCode: wizardData.bankDetails?.ifscCode || (wizardData as any).ifscCode || '',
+            bankDetails: wizardData.bankDetails || {
+              accountHolderName: wizardData.bankDetails?.accountHolderName || wizardData.ownerName,
+              bankName: wizardData.bankDetails?.bankName || (wizardData as any).bankName,
+              branch: wizardData.bankDetails?.branch || '',
+              accountNumber: wizardData.bankDetails?.accountNumber || (wizardData as any).accountNumber,
+              ifscCode: wizardData.bankDetails?.ifscCode || (wizardData as any).ifscCode
+            },
             assignedState: targetState,
             state: targetState,
             assignedDistrict: targetDistrict,
@@ -1872,7 +1884,14 @@ export const VendorsList: React.FC = () => {
             if (associatedVisitId) {
               api.patch(`/field-visits/shop-visit/${associatedVisitId}`, {
                 vendorId: serverVendor?._id || officialId,
-                onboardingStatus: 'COMPLETED'
+                onboardingStatus: 'COMPLETED',
+                state: targetState,
+                district: targetDistrict,
+                division: targetDivision,
+                pincode: targetPincode,
+                bankAccount: wizardData.bankDetails?.accountNumber || (wizardData as any).accountNumber,
+                bankDetails: wizardData.bankDetails,
+                gstStatus: wizardData.gstStatus
               }).catch(err => console.warn('Field visit link warning:', err));
             }
             setFieldVisitPrefill(null);

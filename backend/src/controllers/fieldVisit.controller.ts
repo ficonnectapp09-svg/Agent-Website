@@ -187,18 +187,35 @@ export const getFieldVisits = async (req: Request, res: Response) => {
         { recordedById: agentId },
         { managerId: agentId }
       ];
-      filter.$and = filter.$and || [];
-      filter.$and.push({ $or: pinConds });
       if (scope.pincode) {
-        filter.$and.push({
+        // Resolve vendors registered under this pincode to match visits linked to them
+        const pinVendors = await Vendor.find({
           $or: [
             { pincode: scope.pincode },
-            { pincodeCode: scope.pincode },
-            { 'assignedTerritory.pincode': scope.pincode },
-            { 'vendor.pincode': scope.pincode }
+            { 'assignedTerritory.pincode': scope.pincode }
           ]
-        });
+        }).select('_id').lean();
+        const pinVendorIds: any[] = [];
+        for (const pv of pinVendors) {
+          pinVendorIds.push(pv._id);
+          pinVendorIds.push(String(pv._id));
+        }
+
+        pinConds.push(
+          { pincode: scope.pincode },
+          { pincodeCode: scope.pincode },
+          { 'assignedTerritory.pincode': scope.pincode }
+        );
+
+        if (pinVendorIds.length > 0) {
+          pinConds.push(
+            { vendor: { $in: pinVendorIds } },
+            { vendorId: { $in: pinVendorIds.map(String) } }
+          );
+        }
       }
+      filter.$and = filter.$and || [];
+      filter.$and.push({ $or: pinConds });
     } else if (scope.role === 'division') {
       const divConds: any[] = [
         { agent: { $in: queryIds } },
@@ -395,7 +412,7 @@ export const getFieldVisits = async (req: Request, res: Response) => {
       FieldVisit.find(baseKpiFilter).select('interestedStatus interestStatus status').lean(),
       FieldVisit.find(filter)
         .populate('agent', 'name email role phone territory assignedTerritory registrationId')
-        .populate('vendor', 'storeName businessName contactPerson phone pincode address district division state')
+        .populate('vendor', 'storeName businessName contactPerson phone pincode address district division state gst gstStatus bankAccount accountNumber bankDetails settlementBank bank')
         .sort({ createdAt: -1 })
         .skip((pageNum - 1) * limitNum)
         .limit(limitNum)
@@ -422,7 +439,7 @@ export const getFieldVisits = async (req: Request, res: Response) => {
         phone: ''
       };
 
-      const normalizedVendor = v.vendor || {
+      const normalizedVendor = (typeof v.vendor === 'object' && v.vendor) ? v.vendor : {
         _id: v.vendorId || v.id || v._id,
         storeName: v.shopName || 'Store Location',
         businessName: v.shopName || 'Store Location',
@@ -439,6 +456,21 @@ export const getFieldVisits = async (req: Request, res: Response) => {
         (v.vendorId && (v.status === 'Approved' || v.status === 'Active'));
       const isEligibleForResume = isInterested && !isCompleted;
 
+      const vObj = (typeof v.vendor === 'object' && v.vendor) ? v.vendor : {};
+      const rawBankAcc = v.bankAccount ||
+        v.accountNumber ||
+        v.bankDetails?.accountNumber ||
+        vObj.bankAccount ||
+        vObj.accountNumber ||
+        vObj.bankDetails?.accountNumber ||
+        vObj.settlementBank?.accountNumber ||
+        vObj.bank?.accountNumber ||
+        '';
+
+      const rawGstStatus = v.gstStatus ||
+        vObj.gstStatus ||
+        (vObj.gst ? 'GST Registered' : (isCompleted ? 'Unregistered' : 'Pending Verification'));
+
       return {
         ...v,
         agent: normalizedAgent,
@@ -447,6 +479,9 @@ export const getFieldVisits = async (req: Request, res: Response) => {
         district: v.district || normalizedVendor.district,
         division: v.division || normalizedVendor.division,
         pincode: v.pincode || v.pincodeCode || normalizedVendor.pincode,
+        bankAccount: rawBankAcc ? String(rawBankAcc) : undefined,
+        bankDetails: v.bankDetails || vObj.bankDetails || undefined,
+        gstStatus: rawGstStatus,
         status: (v.status || '').toLowerCase() === 'started' ? 'in_progress' : v.status,
         isEligibleForResume,
         isOnboardingCompleted: isCompleted,
@@ -870,10 +905,27 @@ export const recordShopVisit = async (req: Request, res: Response) => {
 export const getShopVisitById = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const visit = await FieldVisit.findById(id).lean();
+    let visit: any = await FieldVisit.findById(id)
+      .populate([
+        { path: 'agent', select: 'name email role phone assignedTerritory territory' },
+        { path: 'vendor', select: 'storeName businessName contactPerson phone pincode address district division state gst gstStatus bankAccount accountNumber bankDetails settlementBank bank' }
+      ])
+      .lean();
     if (!visit) {
       return res.status(404).json({ success: false, message: 'Shop visit not found' });
     }
+
+    if (visit.vendor && typeof visit.vendor === 'object') {
+      const v = visit.vendor;
+      visit.bankAccount = visit.bankAccount || v.bankAccount || v.accountNumber || v.bankDetails?.accountNumber || v.settlementBank?.accountNumber || v.bank?.accountNumber;
+      visit.bankDetails = visit.bankDetails || v.bankDetails || v.settlementBank || v.bank;
+      visit.gstStatus = visit.gstStatus || v.gstStatus || (v.gst ? 'GST Registered' : 'Unregistered');
+      visit.pincode = visit.pincode || v.pincode;
+      visit.district = visit.district || v.district;
+      visit.division = visit.division || v.division;
+      visit.state = visit.state || v.state;
+    }
+
     return res.status(200).json({ success: true, data: visit, visit });
   } catch (error: any) {
     console.error('Get shop visit error:', error);
@@ -893,6 +945,34 @@ export const updateShopVisit = async (req: Request, res: Response) => {
     }
     if (req.body.onboardingStatus) {
       updateData.onboardingStatus = req.body.onboardingStatus;
+    }
+    if (req.body.pincode) {
+      updateData.pincode = req.body.pincode;
+      updateData.pincodeCode = req.body.pincode;
+    }
+    if (req.body.district) updateData.district = req.body.district;
+    if (req.body.division) updateData.division = req.body.division;
+    if (req.body.state) updateData.state = req.body.state;
+    if (req.body.bankAccount) updateData.bankAccount = req.body.bankAccount;
+    if (req.body.bankDetails) updateData.bankDetails = req.body.bankDetails;
+    if (req.body.gstStatus) updateData.gstStatus = req.body.gstStatus;
+
+    if (req.body.vendorId && mongoose.isValidObjectId(req.body.vendorId)) {
+      const v = await Vendor.findById(req.body.vendorId).lean();
+      if (v) {
+        if (!updateData.pincode && v.pincode) {
+          updateData.pincode = v.pincode;
+          updateData.pincodeCode = v.pincode;
+        }
+        if (!updateData.district && v.district) updateData.district = v.district;
+        if (!updateData.division && (v as any).division) updateData.division = (v as any).division;
+        if (!updateData.state && v.state) updateData.state = v.state;
+        if (!updateData.bankAccount) {
+          updateData.bankAccount = (v as any).bankAccount || (v as any).accountNumber || (v as any).bankDetails?.accountNumber;
+        }
+        if (!updateData.bankDetails && (v as any).bankDetails) updateData.bankDetails = (v as any).bankDetails;
+        if (!updateData.gstStatus && (v as any).gstStatus) updateData.gstStatus = (v as any).gstStatus;
+      }
     }
 
     const updated = await FieldVisit.findByIdAndUpdate(id, { $set: updateData }, { new: true }).lean();

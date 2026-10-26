@@ -669,6 +669,12 @@ const createVendor = async (req, res) => {
             ...data,
             businessName: data.businessName || data.name || 'Merchant Store',
             ownerName: data.ownerName || data.contactPerson || 'Merchant Owner',
+            bankAccount: data.bankAccount || data.accountNumber || data.bankDetails?.accountNumber || req.body.bankAccount || req.body.accountNumber || req.body.bankDetails?.accountNumber,
+            accountNumber: data.accountNumber || data.bankAccount || data.bankDetails?.accountNumber || req.body.accountNumber || req.body.bankAccount || req.body.bankDetails?.accountNumber,
+            bankDetails: data.bankDetails || req.body.bankDetails,
+            bankName: data.bankName || data.bankDetails?.bankName || req.body.bankName || req.body.bankDetails?.bankName,
+            ifscCode: data.ifscCode || data.bankDetails?.ifscCode || req.body.ifscCode || req.body.bankDetails?.ifscCode,
+            gstStatus: data.gstStatus || req.body.gstStatus,
             location: {
                 address: data.location?.address || `${data.buildingNo ? `${data.buildingNo}, ` : ''}${data.streetName ? `${data.streetName}, ` : ''}${data.postOffice ? `${data.postOffice}, ` : ''}${data.taluk ? `${data.taluk}, ` : ''}${data.district || ''}, ${data.state || ''} - ${data.pincode || ''}`,
                 latitude: data.location?.latitude || 0,
@@ -745,7 +751,15 @@ const createVendor = async (req, res) => {
                     $set: {
                         vendorId: vendor._id,
                         vendor: vendor._id,
-                        onboardingStatus: 'COMPLETED'
+                        onboardingStatus: 'COMPLETED',
+                        state: vendor.state || vendor.assignedState,
+                        district: vendor.district || vendor.assignedDistrict,
+                        division: vendor.division || vendor.assignedDivision,
+                        pincode: vendor.pincode,
+                        pincodeCode: vendor.pincode,
+                        bankAccount: vendor.bankAccount || vendor.accountNumber || vendor.bankDetails?.accountNumber,
+                        bankDetails: vendor.bankDetails,
+                        gstStatus: vendor.gstStatus
                     }
                 });
             }

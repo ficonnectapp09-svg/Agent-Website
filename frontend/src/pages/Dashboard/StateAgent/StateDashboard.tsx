@@ -3,7 +3,7 @@ import { useAuth } from '../../../context/AuthContext';
 import { downloadReport } from '../../../utils/downloadReport';
 import {
   TrendingUp, Download, ShieldAlert, Award,
-  Clock, CheckCircle2, ChevronRight, Users, Target, Ticket, FileText, Plus, Landmark, Megaphone, Send, BarChart2, Briefcase, ListCollapse, GitFork, MapPin, Layers, Building2, ChevronDown, ChevronUp, AlertCircle
+  Clock, CheckCircle2, ChevronRight, Users, Target, Ticket, FileText, Plus, Landmark, Megaphone, BarChart2, Briefcase, ListCollapse, GitFork, MapPin, Layers, Building2, ChevronDown, ChevronUp, AlertCircle
 } from 'lucide-react';
 
 import { useQuery } from '@tanstack/react-query';
@@ -11,9 +11,6 @@ import api from '../../../utils/api';
 
 export const StateDashboard: React.FC = () => {
   const { user } = useAuth();
-  const [targetGoalText, setTargetGoalText] = useState('');
-  const [announcementText, setAnnouncementText] = useState('');
-  const [broadcasted, setBroadcasted] = useState(false);
   const [activeTab, setActiveTab] = useState<'districts' | 'divisions' | 'pincodes'>('districts');
 
   const INITIAL_LIMIT = 10;
@@ -353,17 +350,6 @@ export const StateDashboard: React.FC = () => {
     const currentDivs = activeDrilledDistrict ? (activeDrilledDistrict.divisions || []) : stateDivisions;
     return currentDivs.find((div: any) => div._id === drilledDivisionId || div.id === drilledDivisionId) || null;
   }, [drilledDivisionId, activeDrilledDistrict, stateDivisions]);
-
-  const handleBroadcast = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!announcementText.trim() && !targetGoalText.trim()) return;
-    setBroadcasted(true);
-    setTimeout(() => {
-      setBroadcasted(false);
-      setAnnouncementText('');
-      setTargetGoalText('');
-    }, 3000);
-  };
 
   return (
     <div className="space-y-6 animate-fade-in text-[#1b1c1c] font-sans">
@@ -1015,56 +1001,16 @@ export const StateDashboard: React.FC = () => {
           </div>
         </div>
 
-        {/* Quick Action Announcement broadcasting form */}
-        <div className="bg-white rounded-[16px] border border-[#eae8e7] shadow-sm p-6 flex flex-col justify-between space-y-4">
+        {/* Escalated Alerts and Notifications Panel placed in former Quick Actions slot */}
+        <div className="bg-white rounded-[16px] border border-[#eae8e7] shadow-sm p-6 space-y-4">
           <div className="border-b border-[#eae8e7] pb-3">
-            <h3 className="font-extrabold text-sm text-[#1b1c1c]">State Quick Actions</h3>
-            <p className="text-[10px] text-[#52443a] mt-0.5">Push announcements, view reports, or assign targets to downstream agents.</p>
+            <h3 className="font-extrabold text-sm text-[#1b1c1c]">Escalated Alerts & Notifications</h3>
           </div>
           
-          <form onSubmit={handleBroadcast} className="space-y-3 flex-grow flex flex-col justify-between">
-            <div className="space-y-1">
-              <label className="block text-[9px] font-bold text-[#52443a] uppercase tracking-wider">Assign State Target Goal</label>
-              <input
-                type="text"
-                value={targetGoalText}
-                onChange={(e) => setTargetGoalText(e.target.value)}
-                placeholder="e.g. Target: Onboard 500 new vendors across state"
-                className="w-full bg-[#fbf9f8] border border-[#d7c3b5]/60 rounded-xl py-2.5 px-3.5 text-xs text-[#1b1c1c] focus:outline-none focus:ring-1 focus:ring-[#864f19]"
-              />
+          <div className="space-y-3">
+            <div className="p-4 text-center text-xs text-[#52443a] italic bg-[#fbf9f8] rounded-xl border border-dashed border-[#eae8e7]">
+              All escalated state alerts & notifications cleared for {stateName}.
             </div>
-
-            <div className="space-y-1">
-              <label className="block text-[9px] font-bold text-[#52443a] uppercase tracking-wider">Broadcast Announcement text</label>
-              <textarea
-                value={announcementText}
-                onChange={(e) => setAnnouncementText(e.target.value)}
-                placeholder="Broadcast notification text to all districts, divisions, and pincodes..."
-                rows={2}
-                className="w-full bg-[#fbf9f8] border border-[#d7c3b5]/60 rounded-xl py-2.5 px-3.5 text-xs text-[#1b1c1c] focus:outline-none focus:ring-1 focus:ring-[#864f19] resize-none"
-              />
-            </div>
-
-            {broadcasted && (
-              <p className="text-[10px] text-green-600 font-bold text-center">Announcement & Target broadcasted to all downstream agents!</p>
-            )}
-
-            <button type="submit" className="w-full py-3.5 bg-[#864f19] hover:bg-[#a3672f] text-white rounded-xl text-xs font-bold uppercase tracking-wider shadow-sm transition-all border-none cursor-pointer flex items-center justify-center gap-2">
-              <Send className="w-3.5 h-3.5" /> Broadcast Announcement
-            </button>
-          </form>
-        </div>
-      </div>
-
-      {/* Escalated Alerts and Notifications Panel */}
-      <div className="bg-white rounded-[16px] border border-[#eae8e7] shadow-sm p-6 space-y-4">
-        <div className="border-b border-[#eae8e7] pb-3">
-          <h3 className="font-extrabold text-sm text-[#1b1c1c]">Escalated Alerts & Notifications</h3>
-        </div>
-        
-        <div className="space-y-3">
-          <div className="p-4 text-center text-xs text-[#52443a] italic bg-[#fbf9f8] rounded-xl border border-dashed border-[#eae8e7]">
-            All escalated state alerts & notifications cleared for {stateName}.
           </div>
         </div>
       </div>
