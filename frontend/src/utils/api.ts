@@ -5,15 +5,13 @@ const getAgentBackendUrl = () => {
   if (!url) {
     if (typeof window !== 'undefined') {
       const host = window.location.hostname;
-      if (host.includes('vercel.app') || host.includes('ficapp.in') || host.includes('connect')) {
-        url = 'https://agent.ficapp.in/api';
-      } else if (host === 'localhost' || host === '127.0.0.1') {
+      if (host === 'localhost' || host === '127.0.0.1') {
         url = '/api';
       } else {
-        url = 'https://agent.ficapp.in/api';
+        url = 'https://agent-website-9bgj.onrender.com/api';
       }
     } else {
-      url = 'https://agent.ficapp.in/api';
+      url = 'https://agent-website-9bgj.onrender.com/api';
     }
   }
 

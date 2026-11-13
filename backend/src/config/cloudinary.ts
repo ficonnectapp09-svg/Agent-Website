@@ -276,3 +276,4 @@ export async function deleteFromCloudinary(publicId: string, resourceType: 'imag
 export const uploadBase64ToCloudinary = uploadToCloudinary;
 export const uploadToS3 = uploadToCloudinary;
 export const uploadBase64ToS3 = uploadToCloudinary;
+
