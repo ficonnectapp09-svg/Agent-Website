@@ -42,7 +42,7 @@ class CacheService {
           ? new Redis(redisUrl, {
               maxRetriesPerRequest: 1,
               connectTimeout: 2000,
-              retryStrategy: (times) => (times > 3 ? null : Math.min(times * 200, 1000))
+              retryStrategy: (times: number) => (times > 3 ? null : Math.min(times * 200, 1000))
             })
           : new Redis({
               host: redisHost || '127.0.0.1',
@@ -50,7 +50,7 @@ class CacheService {
               password: process.env.REDIS_PASSWORD || undefined,
               maxRetriesPerRequest: 1,
               connectTimeout: 2000,
-              retryStrategy: (times) => (times > 3 ? null : Math.min(times * 200, 1000))
+              retryStrategy: (times: number) => (times > 3 ? null : Math.min(times * 200, 1000))
             });
 
         client.on('connect', () => {
@@ -58,7 +58,7 @@ class CacheService {
           console.log('[CacheService] Connected to Redis server.');
         });
 
-        client.on('error', (err) => {
+        client.on('error', (err: any) => {
           this.isRedisConnected = false;
           // Silent fallback to in-memory, avoid spamming logs
         });

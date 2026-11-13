@@ -3,7 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-const s3_1 = require("./config/s3");
+const cloudinary_1 = require("./config/cloudinary");
 require("dotenv/config");
 const express_1 = __importDefault(require("express"));
 const cors_1 = __importDefault(require("cors"));
@@ -78,7 +78,7 @@ app.use('/api/territory', territory_routes_1.default);
 app.use('/territory', territory_routes_1.default);
 app.use('/api/tasks', task_routes_1.default);
 app.use('/tasks', task_routes_1.default);
-// S3 Media streaming proxy and presigned view handler
+// Cloudinary Media redirect and proxy handler
 const mediaHandler = async (req, res) => {
     try {
         const rawKey = req.params[0] || req.params.key;
@@ -90,46 +90,43 @@ const mediaHandler = async (req, res) => {
         if (isPrivate && !req.agent && !req.user) {
             return res.status(403).json({ error: 'Authentication required for private documents' });
         }
-        const { body, contentType, contentLength } = await (0, s3_1.getObjectStream)(key);
-        if (contentType)
-            res.setHeader('Content-Type', contentType);
-        if (contentLength)
-            res.setHeader('Content-Length', contentLength);
-        res.setHeader('Cache-Control', 'public, max-age=86400');
-        if (body && typeof body.pipe === 'function') {
-            body.pipe(res);
+        if (key.startsWith('http://') || key.startsWith('https://')) {
+            return res.redirect(key);
         }
-        else {
-            const presigned = await (0, s3_1.getPresignedUrl)(key, 900);
-            return res.redirect(presigned);
+        const redirectUrl = await (0, cloudinary_1.getPresignedUrl)(key, 900);
+        if (redirectUrl) {
+            return res.redirect(redirectUrl);
         }
+        return res.status(404).json({ error: 'File not found' });
     }
     catch (err) {
-        if (err.name === 'NoSuchKey' || err.$metadata?.httpStatusCode === 404) {
-            return res.status(404).json({ error: 'File not found in S3' });
-        }
-        console.error('S3 streaming proxy error:', err);
+        console.error('Media proxy error:', err);
         return res.status(500).json({ error: 'Failed to retrieve file from storage' });
     }
 };
+app.get('/api/media/cloudinary/*', mediaHandler);
 app.get('/api/media/s3/*', mediaHandler);
-app.get('/media/s3/*', mediaHandler);
+app.get('/api/media/*', mediaHandler);
+app.get('/media/*', mediaHandler);
 const uploadRouteHandler = async (req, res) => {
     try {
-        const base64Data = req.body && (req.body.image || req.body.file || req.body.base64 || req.body.data);
-        if (base64Data && typeof base64Data === 'string' && base64Data.startsWith('data:')) {
+        const base64Data = req.body && (req.body.image || req.body.file || req.body.base64 || req.body.data || req.body.video);
+        if (base64Data && typeof base64Data === 'string' && (base64Data.startsWith('data:') || base64Data.startsWith('http://') || base64Data.startsWith('https://'))) {
             const folder = (req.body && req.body.folder) || 'agent_uploads';
             const filename = (req.body && req.body.filename) || `upload_${Date.now()}`;
-            const result = await (0, s3_1.uploadToS3)(base64Data, folder, filename);
+            const result = await (0, cloudinary_1.uploadToCloudinary)(base64Data, folder, filename);
             return res.status(200).json({
                 success: true,
-                url: result.durableUrl || result.url,
+                url: result.secure_url || result.url,
+                secure_url: result.secure_url,
+                durableUrl: result.secure_url,
                 key: result.key,
+                publicId: result.publicId,
                 contentType: result.contentType,
                 size: result.size
             });
         }
-        return res.status(400).json({ success: false, error: 'No base64 data provided' });
+        return res.status(400).json({ success: false, error: 'No valid base64 data provided' });
     }
     catch (uploadErr) {
         console.error('Agent upload error:', uploadErr);

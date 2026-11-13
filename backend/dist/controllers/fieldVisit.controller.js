@@ -4,7 +4,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.revalidateEligibility = exports.updateShopVisit = exports.getShopVisitById = exports.recordShopVisit = exports.getFieldVisitAgents = exports.getFieldVisits = exports.completeFieldVisit = exports.startFieldVisit = void 0;
-const s3_1 = require("../config/s3");
+const cloudinary_1 = require("../config/cloudinary");
 const zod_1 = require("zod");
 const FieldVisit_1 = __importDefault(require("../models/FieldVisit"));
 const Vendor_1 = __importDefault(require("../models/Vendor"));
@@ -715,24 +715,24 @@ const recordShopVisit = async (req, res) => {
             return res.status(400).json({ success: false, message: 'Storefront photo is required' });
         }
         let resolvedVoice = voiceNote || audioVoiceNote || null;
-        // Upload storefront photo to S3 if base64 DataURL
+        // Upload storefront photo to Cloudinary if base64 DataURL
         if (resolvedPhoto && typeof resolvedPhoto === 'string' && resolvedPhoto.startsWith('data:')) {
             try {
-                const uploadRes = await (0, s3_1.uploadBase64ToS3)(resolvedPhoto, 'field_visits', `visit_${Date.now()}`);
-                resolvedPhoto = uploadRes.durableUrl || uploadRes.url || uploadRes.key;
+                const uploadRes = await (0, cloudinary_1.uploadToCloudinary)(resolvedPhoto, 'field_visits', `visit_${Date.now()}`);
+                resolvedPhoto = uploadRes.secure_url || uploadRes.url || uploadRes.key;
             }
             catch (uploadErr) {
-                console.error('Failed to upload field visit photo to S3:', uploadErr);
+                console.error('Failed to upload field visit photo to Cloudinary:', uploadErr);
             }
         }
-        // Upload voice note to S3 if base64 DataURL
+        // Upload voice note to Cloudinary if base64 DataURL
         if (resolvedVoice && typeof resolvedVoice === 'string' && resolvedVoice.startsWith('data:')) {
             try {
-                const uploadRes = await (0, s3_1.uploadBase64ToS3)(resolvedVoice, 'voice_notes', `voice_${Date.now()}`);
-                resolvedVoice = uploadRes.durableUrl || uploadRes.url || uploadRes.key;
+                const uploadRes = await (0, cloudinary_1.uploadToCloudinary)(resolvedVoice, 'voice_notes', `voice_${Date.now()}`);
+                resolvedVoice = uploadRes.secure_url || uploadRes.url || uploadRes.key;
             }
             catch (uploadErr) {
-                console.error('Failed to upload field visit voice note to S3:', uploadErr);
+                console.error('Failed to upload field visit voice note to Cloudinary:', uploadErr);
             }
         }
         const resolvedReason = notInterestedReason || (resolvedStatus === 'YES' ? 'Interested in Onboarding' : 'Not specified');

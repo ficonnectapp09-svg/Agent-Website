@@ -7,43 +7,43 @@ exports.indianMobileRegex = /^[6-9][0-9]{9}$/;
 exports.nameSchema = zod_1.z.string()
     .min(2, 'Name must be at least 2 characters')
     .max(100, 'Name cannot exceed 100 characters')
-    .refine(val => (0, formValidation_1.isValidName)(val), { message: 'Name contains invalid characters. Please enter a valid name.' })
-    .transform(val => (0, formValidation_1.formatName)(val));
+    .refine((val) => (0, formValidation_1.isValidName)(val), { message: 'Name contains invalid characters. Please enter a valid name.' })
+    .transform((val) => (0, formValidation_1.formatName)(val));
 exports.emailSchema = zod_1.z.string()
-    .refine(val => (0, formValidation_1.isValidEmail)(val), { message: 'Please enter a valid email address (e.g. name@example.com).' })
-    .transform(val => (0, formValidation_1.normalizeEmail)(val));
+    .refine((val) => (0, formValidation_1.isValidEmail)(val), { message: 'Please enter a valid email address (e.g. name@example.com).' })
+    .transform((val) => (0, formValidation_1.normalizeEmail)(val));
 exports.phoneSchema = zod_1.z.string()
     .min(1, 'Mobile number is required.')
-    .transform(val => (0, formValidation_1.sanitizeIndianMobile)(val))
-    .refine(val => (0, formValidation_1.isValidIndianMobile)(val), {
+    .transform((val) => (0, formValidation_1.sanitizeIndianMobile)(val))
+    .refine((val) => (0, formValidation_1.isValidIndianMobile)(val), {
     message: 'Mobile number must be exactly 10 digits starting with 6, 7, 8, or 9.'
 });
 exports.optionalPhoneSchema = zod_1.z.string()
     .optional()
-    .refine(val => !val || (0, formValidation_1.isValidIndianMobile)(val), {
+    .refine((val) => !val || (0, formValidation_1.isValidIndianMobile)(val), {
     message: 'Mobile number must be exactly 10 digits starting with 6, 7, 8, or 9.'
 })
-    .transform(val => val ? (0, formValidation_1.sanitizeIndianMobile)(val) : val);
+    .transform((val) => val ? (0, formValidation_1.sanitizeIndianMobile)(val) : val);
 exports.passwordSchema = zod_1.z.string()
     .min(6, 'Password must be at least 6 characters long.')
-    .refine(val => (0, formValidation_1.isValidPassword)(val), {
+    .refine((val) => (0, formValidation_1.isValidPassword)(val), {
     message: 'Password must contain at least one uppercase letter, one numeric digit, and one special character (e.g. Rathika@123).'
 });
 exports.optionalAadhaarSchema = zod_1.z.string()
     .optional()
-    .refine(val => !val || (0, formValidation_1.isValidAadhaar)(val), {
+    .refine((val) => !val || (0, formValidation_1.isValidAadhaar)(val), {
     message: 'Aadhaar number must be exactly 12 numeric digits.'
 })
-    .transform(val => val ? (0, formValidation_1.sanitizeAadhaar)(val) : val);
+    .transform((val) => val ? (0, formValidation_1.sanitizeAadhaar)(val) : val);
 exports.optionalPanSchema = zod_1.z.string()
     .optional()
-    .refine(val => !val || (0, formValidation_1.isValidPan)(val), {
+    .refine((val) => !val || (0, formValidation_1.isValidPan)(val), {
     message: 'PAN number must be 10 characters in format ABCDE1234F (5 letters, 4 digits, 1 letter).'
 })
-    .transform(val => val ? (0, formValidation_1.formatPan)(val) : val);
+    .transform((val) => val ? (0, formValidation_1.formatPan)(val) : val);
 exports.dobSchema = zod_1.z.union([zod_1.z.string(), zod_1.z.date()])
     .optional()
-    .refine(val => {
+    .refine((val) => {
     if (!val)
         return true;
     return (0, formValidation_1.isAtLeast18YearsOld)(val);
@@ -66,19 +66,19 @@ exports.registerSchema = zod_1.z.object({
 });
 exports.loginSchema = zod_1.z.object({
     body: zod_1.z.object({
-        email: zod_1.z.string().optional().transform(val => val ? (0, formValidation_1.normalizeEmail)(val) : val),
+        email: zod_1.z.string().optional().transform((val) => val ? (0, formValidation_1.normalizeEmail)(val) : val),
         phone: exports.optionalPhoneSchema,
         password: zod_1.z.string().min(1, 'Password is required'),
     }),
 });
 exports.updateProfileSchema = zod_1.z.object({
     body: zod_1.z.object({
-        name: zod_1.z.string().optional().refine(val => !val || (0, formValidation_1.isValidName)(val), {
+        name: zod_1.z.string().optional().refine((val) => !val || (0, formValidation_1.isValidName)(val), {
             message: 'Name contains invalid characters.'
-        }).transform(val => val ? (0, formValidation_1.formatName)(val) : val),
-        email: zod_1.z.string().optional().refine(val => !val || (0, formValidation_1.isValidEmail)(val), {
+        }).transform((val) => val ? (0, formValidation_1.formatName)(val) : val),
+        email: zod_1.z.string().optional().refine((val) => !val || (0, formValidation_1.isValidEmail)(val), {
             message: 'Invalid email address.'
-        }).transform(val => val ? (0, formValidation_1.normalizeEmail)(val) : val),
+        }).transform((val) => val ? (0, formValidation_1.normalizeEmail)(val) : val),
         phone: exports.optionalPhoneSchema,
         phoneNumber: exports.optionalPhoneSchema,
         mobile: exports.optionalPhoneSchema,

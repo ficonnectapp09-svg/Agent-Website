@@ -38,12 +38,12 @@ mongod
 
 # 4. Start dev server
 npm run dev
-# → API running at http://localhost:8083 (Production: http://3.110.88.42:8083)
+# → API running at http://localhost:8083 (Production: https://agent.ficapp.in/api)
 ```
 
 ## API Base URL
 ```
-http://3.110.88.42:8083/api
+https://agent.ficapp.in/api
 ```
 
 ## Key Endpoints (to be implemented)

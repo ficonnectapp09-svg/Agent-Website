@@ -1,4 +1,4 @@
-import { uploadBase64ToS3 } from '../config/s3';
+import { uploadToCloudinary } from '../config/cloudinary';
 import { Request, Response } from 'express';
 import mongoose from 'mongoose';
 import bcrypt from 'bcryptjs';
@@ -493,17 +493,17 @@ export const register = async (req: Request, res: Response) => {
 
     const cleanAlt = String(validatedData.altPhone || (req.body as any).alternateMobile || (req.body as any).alternativePhone || (req.body as any).secondaryPhone || '').trim();
 
-    // Upload base64 KYC documents to S3
+    // Upload base64 KYC documents to Cloudinary
     if (validatedData.kycDocs && typeof validatedData.kycDocs === 'object') {
       const docFields = ['aadhaarCard', 'panCard', 'passportPhoto', 'signature', 'cancelledCheque', 'educationalCertificates'];
       for (const field of docFields) {
         const val = (validatedData.kycDocs as any)[field];
         if (typeof val === 'string' && val.startsWith('data:')) {
           try {
-            const upRes = await uploadBase64ToS3(val, 'agent_docs/kyc', `reg_${Date.now()}_${field}`);
-            (validatedData.kycDocs as any)[field] = upRes.durableUrl || upRes.url || upRes.key;
+            const upRes = await uploadToCloudinary(val, 'agent_docs/kyc', `reg_${Date.now()}_${field}`);
+            (validatedData.kycDocs as any)[field] = upRes.secure_url || upRes.url || upRes.key;
           } catch (e) {
-            console.error(`Failed to upload KYC doc ${field} to S3:`, e);
+            console.error(`Failed to upload KYC doc ${field} to Cloudinary:`, e);
           }
         }
       }

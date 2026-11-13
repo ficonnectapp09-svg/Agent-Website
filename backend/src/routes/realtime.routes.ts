@@ -1,9 +1,9 @@
-import { Router } from 'express';
+import { Router, Request, Response } from 'express';
 import { realtimeWebSocketServer } from '../realtime';
 
 const router = Router();
 
-router.get('/health', (req, res) => {
+router.get('/health', (req: Request, res: Response) => {
   res.json({
     success: true,
     data: realtimeWebSocketServer.getHealth()

@@ -4,7 +4,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.verifyMobileOtp = exports.sendOtp = exports.resetPassword = exports.verifyOtp = exports.forgotPassword = exports.updateKyc = exports.changePassword = exports.updateProfile = exports.getMe = exports.login = exports.register = void 0;
-const s3_1 = require("../config/s3");
+const cloudinary_1 = require("../config/cloudinary");
 const mongoose_1 = __importDefault(require("mongoose"));
 const bcryptjs_1 = __importDefault(require("bcryptjs"));
 const Agent_1 = __importDefault(require("../models/Agent"));
@@ -438,18 +438,18 @@ const register = async (req, res) => {
         const randDigits = Math.floor(1000 + Math.random() * 9000);
         const registrationId = `REG-${dateStr}-${randDigits}`;
         const cleanAlt = String(validatedData.altPhone || req.body.alternateMobile || req.body.alternativePhone || req.body.secondaryPhone || '').trim();
-        // Upload base64 KYC documents to S3
+        // Upload base64 KYC documents to Cloudinary
         if (validatedData.kycDocs && typeof validatedData.kycDocs === 'object') {
             const docFields = ['aadhaarCard', 'panCard', 'passportPhoto', 'signature', 'cancelledCheque', 'educationalCertificates'];
             for (const field of docFields) {
                 const val = validatedData.kycDocs[field];
                 if (typeof val === 'string' && val.startsWith('data:')) {
                     try {
-                        const upRes = await (0, s3_1.uploadBase64ToS3)(val, 'agent_docs/kyc', `reg_${Date.now()}_${field}`);
-                        validatedData.kycDocs[field] = upRes.durableUrl || upRes.url || upRes.key;
+                        const upRes = await (0, cloudinary_1.uploadToCloudinary)(val, 'agent_docs/kyc', `reg_${Date.now()}_${field}`);
+                        validatedData.kycDocs[field] = upRes.secure_url || upRes.url || upRes.key;
                     }
                     catch (e) {
-                        console.error(`Failed to upload KYC doc ${field} to S3:`, e);
+                        console.error(`Failed to upload KYC doc ${field} to Cloudinary:`, e);
                     }
                 }
             }

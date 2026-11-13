@@ -37,10 +37,10 @@ class RealtimeWebSocketServer {
   public attach(httpServer: http.Server) {
     this.wss = new WebSocketServer({ noServer: true });
 
-    httpServer.on('upgrade', (request, socket, head) => {
+    httpServer.on('upgrade', (request: http.IncomingMessage, socket: any, head: Buffer) => {
       const pathname = url.parse(request.url || '').pathname;
       if (pathname === '/ws' || pathname === '/realtime' || pathname === '/api/ws') {
-        this.wss!.handleUpgrade(request, socket, head, (ws) => {
+        this.wss!.handleUpgrade(request, socket, head, (ws: WebSocket) => {
           this.wss!.emit('connection', ws, request);
         });
       }

@@ -142,7 +142,7 @@ export interface ITask extends Document {
 const taskSchema = new Schema<ITask>(
   {
     _id: { type: Schema.Types.Mixed },
-    taskNumber: { type: String, required: true, index: true },
+    taskNumber: { type: String, required: true },
     title: { type: String, required: true, trim: true },
     description: { type: String, required: true, trim: true },
     priority: {

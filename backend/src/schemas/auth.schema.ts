@@ -19,50 +19,50 @@ export const indianMobileRegex = /^[6-9][0-9]{9}$/;
 export const nameSchema = z.string()
   .min(2, 'Name must be at least 2 characters')
   .max(100, 'Name cannot exceed 100 characters')
-  .refine(val => isValidName(val), { message: 'Name contains invalid characters. Please enter a valid name.' })
-  .transform(val => formatName(val));
+  .refine((val: string) => isValidName(val), { message: 'Name contains invalid characters. Please enter a valid name.' })
+  .transform((val: string) => formatName(val));
 
 export const emailSchema = z.string()
-  .refine(val => isValidEmail(val), { message: 'Please enter a valid email address (e.g. name@example.com).' })
-  .transform(val => normalizeEmail(val));
+  .refine((val: string) => isValidEmail(val), { message: 'Please enter a valid email address (e.g. name@example.com).' })
+  .transform((val: string) => normalizeEmail(val));
 
 export const phoneSchema = z.string()
   .min(1, 'Mobile number is required.')
-  .transform(val => sanitizeIndianMobile(val))
-  .refine(val => isValidIndianMobile(val), {
+  .transform((val: string) => sanitizeIndianMobile(val))
+  .refine((val: string) => isValidIndianMobile(val), {
     message: 'Mobile number must be exactly 10 digits starting with 6, 7, 8, or 9.'
   });
 
 export const optionalPhoneSchema = z.string()
   .optional()
-  .refine(val => !val || isValidIndianMobile(val), {
+  .refine((val?: string) => !val || isValidIndianMobile(val), {
     message: 'Mobile number must be exactly 10 digits starting with 6, 7, 8, or 9.'
   })
-  .transform(val => val ? sanitizeIndianMobile(val) : val);
+  .transform((val?: string) => val ? sanitizeIndianMobile(val) : val);
 
 export const passwordSchema = z.string()
   .min(6, 'Password must be at least 6 characters long.')
-  .refine(val => isValidPassword(val), {
+  .refine((val: string) => isValidPassword(val), {
     message: 'Password must contain at least one uppercase letter, one numeric digit, and one special character (e.g. Rathika@123).'
   });
 
 export const optionalAadhaarSchema = z.string()
   .optional()
-  .refine(val => !val || isValidAadhaar(val), {
+  .refine((val?: string) => !val || isValidAadhaar(val), {
     message: 'Aadhaar number must be exactly 12 numeric digits.'
   })
-  .transform(val => val ? sanitizeAadhaar(val) : val);
+  .transform((val?: string) => val ? sanitizeAadhaar(val) : val);
 
 export const optionalPanSchema = z.string()
   .optional()
-  .refine(val => !val || isValidPan(val), {
+  .refine((val?: string) => !val || isValidPan(val), {
     message: 'PAN number must be 10 characters in format ABCDE1234F (5 letters, 4 digits, 1 letter).'
   })
-  .transform(val => val ? formatPan(val) : val);
+  .transform((val?: string) => val ? formatPan(val) : val);
 
 export const dobSchema = z.union([z.string(), z.date()])
   .optional()
-  .refine(val => {
+  .refine((val?: string | Date) => {
     if (!val) return true;
     return isAtLeast18YearsOld(val);
   }, {
@@ -86,7 +86,7 @@ export const registerSchema = z.object({
 
 export const loginSchema = z.object({
   body: z.object({
-    email: z.string().optional().transform(val => val ? normalizeEmail(val) : val),
+    email: z.string().optional().transform((val?: string) => val ? normalizeEmail(val) : val),
     phone: optionalPhoneSchema,
     password: z.string().min(1, 'Password is required'),
   }),
@@ -94,12 +94,12 @@ export const loginSchema = z.object({
 
 export const updateProfileSchema = z.object({
   body: z.object({
-    name: z.string().optional().refine(val => !val || isValidName(val), {
+    name: z.string().optional().refine((val?: string) => !val || isValidName(val), {
       message: 'Name contains invalid characters.'
-    }).transform(val => val ? formatName(val) : val),
-    email: z.string().optional().refine(val => !val || isValidEmail(val), {
+    }).transform((val?: string) => val ? formatName(val) : val),
+    email: z.string().optional().refine((val?: string) => !val || isValidEmail(val), {
       message: 'Invalid email address.'
-    }).transform(val => val ? normalizeEmail(val) : val),
+    }).transform((val?: string) => val ? normalizeEmail(val) : val),
     phone: optionalPhoneSchema,
     phoneNumber: optionalPhoneSchema,
     mobile: optionalPhoneSchema,

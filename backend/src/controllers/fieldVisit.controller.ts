@@ -1,4 +1,4 @@
-import { uploadBase64ToS3 } from '../config/s3';
+import { uploadToCloudinary } from '../config/cloudinary';
 import { Request, Response } from 'express';
 import { z } from 'zod';
 import FieldVisit from '../models/FieldVisit';
@@ -787,23 +787,23 @@ export const recordShopVisit = async (req: Request, res: Response) => {
 
     let resolvedVoice = voiceNote || audioVoiceNote || null;
 
-    // Upload storefront photo to S3 if base64 DataURL
+    // Upload storefront photo to Cloudinary if base64 DataURL
     if (resolvedPhoto && typeof resolvedPhoto === 'string' && resolvedPhoto.startsWith('data:')) {
       try {
-        const uploadRes = await uploadBase64ToS3(resolvedPhoto, 'field_visits', `visit_${Date.now()}`);
-        resolvedPhoto = uploadRes.durableUrl || uploadRes.url || uploadRes.key;
+        const uploadRes = await uploadToCloudinary(resolvedPhoto, 'field_visits', `visit_${Date.now()}`);
+        resolvedPhoto = uploadRes.secure_url || uploadRes.url || uploadRes.key;
       } catch (uploadErr) {
-        console.error('Failed to upload field visit photo to S3:', uploadErr);
+        console.error('Failed to upload field visit photo to Cloudinary:', uploadErr);
       }
     }
 
-    // Upload voice note to S3 if base64 DataURL
+    // Upload voice note to Cloudinary if base64 DataURL
     if (resolvedVoice && typeof resolvedVoice === 'string' && resolvedVoice.startsWith('data:')) {
       try {
-        const uploadRes = await uploadBase64ToS3(resolvedVoice, 'voice_notes', `voice_${Date.now()}`);
-        resolvedVoice = uploadRes.durableUrl || uploadRes.url || uploadRes.key;
+        const uploadRes = await uploadToCloudinary(resolvedVoice, 'voice_notes', `voice_${Date.now()}`);
+        resolvedVoice = uploadRes.secure_url || uploadRes.url || uploadRes.key;
       } catch (uploadErr) {
-        console.error('Failed to upload field visit voice note to S3:', uploadErr);
+        console.error('Failed to upload field visit voice note to Cloudinary:', uploadErr);
       }
     }
     const resolvedReason = notInterestedReason || (resolvedStatus === 'YES' ? 'Interested in Onboarding' : 'Not specified');

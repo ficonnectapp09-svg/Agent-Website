@@ -37,7 +37,7 @@ exports.Task = void 0;
 const mongoose_1 = __importStar(require("mongoose"));
 const taskSchema = new mongoose_1.Schema({
     _id: { type: mongoose_1.Schema.Types.Mixed },
-    taskNumber: { type: String, required: true, index: true },
+    taskNumber: { type: String, required: true },
     title: { type: String, required: true, trim: true },
     description: { type: String, required: true, trim: true },
     priority: {
