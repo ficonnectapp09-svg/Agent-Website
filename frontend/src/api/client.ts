@@ -65,8 +65,34 @@ api.interceptors.response.use(
   }
 );
 
-// In-flight GET request deduplication map to prevent multiple identical requests
+// In-flight GET request deduplication & user-scoped short-TTL response cache
 const inFlightRequests = new Map<string, Promise<any>>();
+const responseCache = new Map<string, { response: any; timestamp: number }>();
+
+const getAuthScope = (): string => {
+  try {
+    const t = localStorage.getItem('agent_token') || localStorage.getItem('auth_token') || '';
+    return t ? t.slice(-12) : 'anon';
+  } catch {
+    return 'anon';
+  }
+};
+
+const getTtlForUrl = (url = ''): number => {
+  const u = String(url).toLowerCase();
+  if (u.includes('/hierarchy') || u.includes('/categories') || u.includes('/territory') || u.includes('/pincodes')) {
+    return 120000;
+  }
+  if (u.includes('/notifications')) {
+    return 15000;
+  }
+  return 20000;
+};
+
+export const clearAgentApiCache = () => {
+  responseCache.clear();
+  inFlightRequests.clear();
+};
 
 const originalRequest = api.request.bind(api);
 api.request = function (configOrUrl: any, maybeConfig?: any) {
@@ -76,20 +102,47 @@ api.request = function (configOrUrl: any, maybeConfig?: any) {
   const method = (config.method || 'get').toLowerCase();
 
   if (method === 'get') {
-    const key = `${config.baseURL || ''}:${config.url || ''}:${config.params ? JSON.stringify(config.params) : ''}`;
+    const scope = getAuthScope();
+    const key = `${scope}:${config.baseURL || ''}:${config.url || ''}:${config.params ? JSON.stringify(config.params) : ''}`;
+    const skipCache = Boolean((config as any).skipCache || (config as any).force);
+    const ttlMs = typeof (config as any).cacheTtl === 'number' ? (config as any).cacheTtl : getTtlForUrl(config.url);
+
+    if (!skipCache && ttlMs > 0) {
+      const cached = responseCache.get(key);
+      if (cached && Date.now() - cached.timestamp < ttlMs) {
+        return Promise.resolve(cached.response);
+      }
+    }
+
     const existing = inFlightRequests.get(key);
     if (existing) {
       return existing;
     }
 
-    const requestPromise = originalRequest(config).finally(() => {
-      inFlightRequests.delete(key);
-    });
+    const requestPromise = originalRequest(config)
+      .then((res) => {
+        if (res && res.status === 200 && ttlMs > 0) {
+          responseCache.set(key, { response: res, timestamp: Date.now() });
+        }
+        return res;
+      })
+      .finally(() => {
+        inFlightRequests.delete(key);
+      });
     inFlightRequests.set(key, requestPromise);
     return requestPromise;
   }
 
-  return originalRequest(config);
+  // Write mutation: invalidate cached GET responses so subsequent reads reflect fresh DB state
+  return originalRequest(config).then((res) => {
+    responseCache.clear();
+    return res;
+  });
 };
+
+// Ensure api.get delegates through the deduplicated/cached api.request wrapper across Axios v1.x
+api.get = function (url: string, config?: any) {
+  return api.request({ ...(config || {}), method: 'get', url });
+} as any;
 
 export default api;

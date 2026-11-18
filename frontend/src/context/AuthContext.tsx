@@ -57,6 +57,49 @@ export interface NotificationItem {
   metadata?: any;
 }
 
+export interface NotificationPreferences {
+  soundProfile: 'chirp' | 'melody' | 'siren';
+  soundVolume: number;
+  fieldVisitAlerts: boolean;
+  vendorKycAlerts: boolean;
+  targetTaskAlerts: boolean;
+  autoEscalateAdmin: boolean;
+  stateAuditAlerts: boolean;
+  districtPerformanceAlerts: boolean;
+  _updatedAt?: number;
+}
+
+const DEFAULT_NOTIFICATION_PREFS: NotificationPreferences = {
+  soundProfile: 'chirp',
+  soundVolume: 0.5,
+  fieldVisitAlerts: true,
+  vendorKycAlerts: true,
+  targetTaskAlerts: true,
+  autoEscalateAdmin: true,
+  stateAuditAlerts: true,
+  districtPerformanceAlerts: true,
+};
+
+const sanitizeNotificationPrefs = (raw?: Partial<NotificationPreferences> | null): NotificationPreferences => {
+  const merged: NotificationPreferences = { ...DEFAULT_NOTIFICATION_PREFS };
+  if (raw && typeof raw === 'object') {
+    if (raw.soundProfile === 'chirp' || raw.soundProfile === 'melody' || raw.soundProfile === 'siren') {
+      merged.soundProfile = raw.soundProfile;
+    }
+    if (typeof raw.soundVolume === 'number' && !Number.isNaN(raw.soundVolume)) {
+      merged.soundVolume = Math.max(0, Math.min(1, Math.round(raw.soundVolume * 20) / 20));
+    }
+    if (typeof raw.fieldVisitAlerts === 'boolean') merged.fieldVisitAlerts = raw.fieldVisitAlerts;
+    if (typeof raw.vendorKycAlerts === 'boolean') merged.vendorKycAlerts = raw.vendorKycAlerts;
+    if (typeof raw.targetTaskAlerts === 'boolean') merged.targetTaskAlerts = raw.targetTaskAlerts;
+    if (typeof raw.autoEscalateAdmin === 'boolean') merged.autoEscalateAdmin = raw.autoEscalateAdmin;
+    if (typeof raw.stateAuditAlerts === 'boolean') merged.stateAuditAlerts = raw.stateAuditAlerts;
+    if (typeof raw.districtPerformanceAlerts === 'boolean') merged.districtPerformanceAlerts = raw.districtPerformanceAlerts;
+    if (typeof raw._updatedAt === 'number') merged._updatedAt = raw._updatedAt;
+  }
+  return merged;
+};
+
 interface AuthContextType {
   user: AgentProfile | null;
   role: UserRole | null;
@@ -66,6 +109,9 @@ interface AuthContextType {
   fetchNotifications: () => Promise<void>;
   soundProfile: 'chirp' | 'melody' | 'siren';
   soundVolume: number;
+  notificationPreferences: NotificationPreferences;
+  fetchNotificationPreferences: () => Promise<void>;
+  updateNotificationPreferences: (partial: Partial<NotificationPreferences>) => Promise<void>;
   login: (email: string, password?: string) => Promise<any>;
   loginWithToken: (token: string, agent: AgentProfile) => void;
   register: (agentData: any) => Promise<any>;
@@ -125,8 +171,100 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   });
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
-  const [soundProfile, setSoundProfile] = useState<'chirp' | 'melody' | 'siren'>('chirp');
-  const [soundVolume, setSoundVolume] = useState<number>(0.5);
+  const [notificationPreferences, setNotificationPreferences] = useState<NotificationPreferences>(() => {
+    try {
+      const savedUserStr = localStorage.getItem('agent_user');
+      const savedUser = savedUserStr ? JSON.parse(savedUserStr) : null;
+      const uid = savedUser?._id || savedUser?.id || savedUser?.email?.toLowerCase();
+      const localPrefsStr = uid ? localStorage.getItem(`agent_notif_prefs_${uid}`) : null;
+      const localPrefs = localPrefsStr ? JSON.parse(localPrefsStr) : null;
+      return sanitizeNotificationPrefs({
+        ...(localPrefs || {}),
+        ...(savedUser?.notificationPreferences || {})
+      });
+    } catch {
+      return { ...DEFAULT_NOTIFICATION_PREFS };
+    }
+  });
+  const soundProfile = notificationPreferences.soundProfile;
+  const soundVolume = notificationPreferences.soundVolume;
+
+  const hydratePrefsFromAgent = useCallback((agentObj?: any) => {
+    const uid = agentObj?._id || agentObj?.id || agentObj?.email?.toLowerCase();
+    try {
+      const localStr = uid ? localStorage.getItem(`agent_notif_prefs_${uid}`) : null;
+      const localPrefs = localStr ? JSON.parse(localStr) : null;
+      const serverPrefs = agentObj?.notificationPreferences || null;
+      let merged = { ...DEFAULT_NOTIFICATION_PREFS };
+      if (localPrefs) merged = { ...merged, ...localPrefs };
+      if (serverPrefs && typeof serverPrefs === 'object') {
+        const localTs = localPrefs?._updatedAt ? Number(localPrefs._updatedAt) : 0;
+        const serverTs = serverPrefs._updatedAt ? Number(serverPrefs._updatedAt) : 0;
+        if (!localPrefs || serverTs >= localTs) {
+          merged = { ...merged, ...serverPrefs };
+        }
+      }
+      const clean = sanitizeNotificationPrefs(merged);
+      setNotificationPreferences(clean);
+      if (uid) {
+        localStorage.setItem(`agent_notif_prefs_${uid}`, JSON.stringify(clean));
+      }
+    } catch (_) {}
+  }, []);
+
+  const fetchNotificationPreferences = useCallback(async () => {
+    try {
+      const res = await api.get('/notifications/preferences', { timeout: 8000 });
+      const serverPrefs = res.data?.notificationPreferences;
+      if (serverPrefs && typeof serverPrefs === 'object') {
+        const clean = sanitizeNotificationPrefs(serverPrefs);
+        setNotificationPreferences(clean);
+        try {
+          const savedUserStr = localStorage.getItem('agent_user');
+          const savedUser = savedUserStr ? JSON.parse(savedUserStr) : null;
+          const uid = savedUser?._id || savedUser?.id || savedUser?.email?.toLowerCase();
+          if (uid) localStorage.setItem(`agent_notif_prefs_${uid}`, JSON.stringify(clean));
+        } catch (_) {}
+      }
+    } catch (_) {}
+  }, []);
+
+  const updateNotificationPreferences = useCallback(async (partial: Partial<NotificationPreferences>) => {
+    let nextPrefs: NotificationPreferences = { ...DEFAULT_NOTIFICATION_PREFS };
+    setNotificationPreferences((prev) => {
+      nextPrefs = sanitizeNotificationPrefs({ ...prev, ...partial, _updatedAt: Date.now() });
+      try {
+        const savedUserStr = localStorage.getItem('agent_user');
+        const savedUser = savedUserStr ? JSON.parse(savedUserStr) : null;
+        const uid = savedUser?._id || savedUser?.id || savedUser?.email?.toLowerCase();
+        if (uid) {
+          localStorage.setItem(`agent_notif_prefs_${uid}`, JSON.stringify(nextPrefs));
+        }
+      } catch (_) {}
+      return nextPrefs;
+    });
+
+    try {
+      const res = await api.put('/notifications/preferences', partial).catch(() =>
+        api.put('/auth/profile', { notificationPreferences: nextPrefs })
+      );
+      const saved = res?.data?.notificationPreferences || res?.data?.agent?.notificationPreferences;
+      if (saved && typeof saved === 'object') {
+        const clean = sanitizeNotificationPrefs(saved);
+        setNotificationPreferences(clean);
+      }
+    } catch (err) {
+      console.warn('Notification preference backend sync notice:', err);
+    }
+  }, []);
+
+  const setSoundProfile = useCallback((profile: 'chirp' | 'melody' | 'siren') => {
+    updateNotificationPreferences({ soundProfile: profile });
+  }, [updateNotificationPreferences]);
+
+  const setSoundVolume = useCallback((volume: number) => {
+    updateNotificationPreferences({ soundVolume: volume });
+  }, [updateNotificationPreferences]);
 
   const logout = useCallback(() => {
     queryClient.clear();
@@ -221,11 +359,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
       const finalAgent = applySavedProfileOverrides(agent);
       setUser(finalAgent);
+      hydratePrefsFromAgent(finalAgent);
       try {
         localStorage.setItem('agent_user', JSON.stringify(finalAgent));
       } catch (e) {}
-      // Fetch notifications in background without blocking session verification
+      // Fetch notifications & preferences in background without blocking session verification
       fetchNotifications().catch(() => {});
+      fetchNotificationPreferences().catch(() => {});
     } catch (err: any) {
       console.warn('Backend session verification failed on /auth/me:', err?.response?.data?.message || err.message);
       const status = err?.response?.status;
@@ -297,14 +437,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     if (!token) return;
 
+    let lastNotifSyncAt = Date.now();
     const intervalId = setInterval(() => {
       if (document.visibilityState === 'visible') {
+        lastNotifSyncAt = Date.now();
         fetchNotifications().catch(() => {});
       }
     }, 45000);
 
     const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible') {
+      if (document.visibilityState === 'visible' && Date.now() - lastNotifSyncAt >= 20000) {
+        lastNotifSyncAt = Date.now();
         fetchNotifications().catch(() => {});
       }
     };
@@ -341,9 +484,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           localStorage.setItem('agent_user', JSON.stringify(finalAgent));
         } catch (e) {}
         setUser(finalAgent);
+        hydratePrefsFromAgent(finalAgent);
         setLoading(false);
-        // Non-blocking background notification refresh
+        // Non-blocking background notification & preferences refresh
         fetchNotifications().catch(() => {});
+        fetchNotificationPreferences().catch(() => {});
         return finalAgent;
       }
     } catch (err: any) {
@@ -372,8 +517,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const finalAgent = applySavedProfileOverrides(agent);
     try { localStorage.setItem('agent_user', JSON.stringify(finalAgent)); } catch (e) {}
     setUser(finalAgent);
+    hydratePrefsFromAgent(finalAgent);
     setLoading(false);
     fetchNotifications().catch(() => {});
+    fetchNotificationPreferences().catch(() => {});
   }, [fetchNotifications]);
 
   const register = useCallback(async (agentData: any): Promise<any> => {
@@ -578,6 +725,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     fetchNotifications,
     soundProfile,
     soundVolume,
+    notificationPreferences,
+    fetchNotificationPreferences,
+    updateNotificationPreferences,
     login,
     loginWithToken,
     register,
@@ -600,6 +750,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     fetchNotifications,
     soundProfile,
     soundVolume,
+    notificationPreferences,
+    fetchNotificationPreferences,
+    updateNotificationPreferences,
     login,
     loginWithToken,
     register,
