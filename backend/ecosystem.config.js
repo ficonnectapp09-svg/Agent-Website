@@ -11,7 +11,7 @@ module.exports = {
       env: {
         NODE_ENV: 'production',
         PORT: process.env.PORT || 8083,
-        BACKEND_URL: process.env.BACKEND_URL || 'https://agent-website-9bgj.onrender.com'
+        BACKEND_URL: process.env.BACKEND_URL || 'https://agent-website-r7za.onrender.com'
       }
     }
   ]

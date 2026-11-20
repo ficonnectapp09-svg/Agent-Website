@@ -1,5 +1,8 @@
 import axios from 'axios';
 
+// Default production backend API URL
+const DEFAULT_PRODUCTION_API = 'https://agent-website-r7za.onrender.com/api';
+
 const getAgentBackendUrl = () => {
   const envUrl =
     typeof import.meta !== 'undefined' && import.meta.env
@@ -13,10 +16,10 @@ const getAgentBackendUrl = () => {
       if (host === 'localhost' || host === '127.0.0.1') {
         url = '/api';
       } else {
-        url = 'https://agent-website-9bgj.onrender.com/api';
+        url = DEFAULT_PRODUCTION_API;
       }
     } else {
-      url = 'https://agent-website-9bgj.onrender.com/api';
+      url = DEFAULT_PRODUCTION_API;
     }
   }
 
