@@ -3,10 +3,50 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.clearNotifications = exports.markAllRead = exports.markRead = exports.getNotifications = void 0;
+exports.updateNotificationPreferences = exports.getNotificationPreferences = exports.clearNotifications = exports.markAllRead = exports.markRead = exports.getNotifications = void 0;
 const mongoose_1 = __importDefault(require("mongoose"));
 const Notification_1 = __importDefault(require("../models/Notification"));
+const Agent_1 = __importDefault(require("../models/Agent"));
 const notification_service_1 = __importDefault(require("../services/notification.service"));
+const DEFAULT_NOTIFICATION_PREFS = {
+    soundProfile: 'chirp',
+    soundVolume: 0.5,
+    fieldVisitAlerts: true,
+    vendorKycAlerts: true,
+    targetTaskAlerts: true,
+    autoEscalateAdmin: true,
+    stateAuditAlerts: true,
+    districtPerformanceAlerts: true,
+    _updatedAt: 0
+};
+function sanitizeNotificationPreferences(raw, existing) {
+    const base = {
+        ...DEFAULT_NOTIFICATION_PREFS,
+        ...(existing && typeof existing.toObject === 'function' ? existing.toObject() : (existing || {}))
+    };
+    if (raw && typeof raw === 'object') {
+        if (['chirp', 'melody', 'siren'].includes(raw.soundProfile)) {
+            base.soundProfile = raw.soundProfile;
+        }
+        if (typeof raw.soundVolume === 'number' && !Number.isNaN(raw.soundVolume)) {
+            base.soundVolume = Math.max(0, Math.min(1, Math.round(raw.soundVolume * 20) / 20));
+        }
+        const boolKeys = [
+            'fieldVisitAlerts',
+            'vendorKycAlerts',
+            'targetTaskAlerts',
+            'autoEscalateAdmin',
+            'stateAuditAlerts',
+            'districtPerformanceAlerts'
+        ];
+        for (const key of boolKeys) {
+            if (typeof raw[key] === 'boolean') {
+                base[key] = raw[key];
+            }
+        }
+    }
+    return base;
+}
 // Helper to construct receiver match query for both string and ObjectId
 function buildReceiverFilter(agentId) {
     const matches = [agentId, String(agentId)];
@@ -122,4 +162,59 @@ const clearNotifications = async (req, res) => {
     }
 };
 exports.clearNotifications = clearNotifications;
+// GET /api/notifications/preferences
+const getNotificationPreferences = async (req, res) => {
+    try {
+        const agentId = req.agent?.agentId;
+        if (!agentId)
+            return res.status(401).json({ message: 'Unauthorized' });
+        const agent = await Agent_1.default.findById(agentId).select('notificationPreferences').lean();
+        if (!agent)
+            return res.status(404).json({ message: 'Agent not found' });
+        const preferences = sanitizeNotificationPreferences(agent.notificationPreferences);
+        return res.status(200).json({ notificationPreferences: preferences });
+    }
+    catch (error) {
+        console.error('Get notification preferences error:', error);
+        return res.status(500).json({ message: 'Internal server error' });
+    }
+};
+exports.getNotificationPreferences = getNotificationPreferences;
+// PUT /api/notifications/preferences
+const updateNotificationPreferences = async (req, res) => {
+    try {
+        const agentId = req.agent?.agentId;
+        if (!agentId)
+            return res.status(401).json({ message: 'Unauthorized' });
+        const agent = await Agent_1.default.findById(agentId).select('email phone notificationPreferences').lean();
+        if (!agent)
+            return res.status(404).json({ message: 'Agent not found' });
+        const incoming = req.body?.notificationPreferences || req.body || {};
+        const merged = sanitizeNotificationPreferences(incoming, agent.notificationPreferences);
+        merged._updatedAt = Date.now();
+        await Agent_1.default.findByIdAndUpdate(agentId, { $set: { notificationPreferences: merged, updatedAt: new Date() } }, { new: true });
+        // Also sync to users collection for consistent cross-collection visibility
+        try {
+            const db = mongoose_1.default.connection.db;
+            if (db && (agent.email || agent.phone)) {
+                const orQuery = [];
+                if (agent.email)
+                    orQuery.push({ email: String(agent.email).toLowerCase() });
+                if (agent.phone)
+                    orQuery.push({ phone: agent.phone });
+                await db.collection('users').updateOne({ $or: orQuery }, { $set: { notificationPreferences: merged } });
+            }
+        }
+        catch (_) { }
+        return res.status(200).json({
+            message: 'Notification preferences saved.',
+            notificationPreferences: merged
+        });
+    }
+    catch (error) {
+        console.error('Update notification preferences error:', error);
+        return res.status(500).json({ message: 'Internal server error' });
+    }
+};
+exports.updateNotificationPreferences = updateNotificationPreferences;
 //# sourceMappingURL=notification.controller.js.map

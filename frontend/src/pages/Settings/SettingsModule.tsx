@@ -18,6 +18,9 @@ export const SettingsModule: React.FC = () => {
     notifications,
     soundProfile,
     soundVolume,
+    notificationPreferences,
+    fetchNotificationPreferences,
+    updateNotificationPreferences,
     setSoundProfile,
     setSoundVolume,
     triggerSound,
@@ -75,15 +78,28 @@ export const SettingsModule: React.FC = () => {
     }
   };
 
-  // Pincode Agent Alert Toggles State
-  const [fieldVisitAlerts, setFieldVisitAlerts] = useState(true);
-  const [vendorKycAlerts, setVendorKycAlerts] = useState(true);
-  const [targetTaskAlerts, setTargetTaskAlerts] = useState(true);
+  // Refresh synchronized preferences from backend on mount
+  useEffect(() => {
+    fetchNotificationPreferences().catch(() => {});
+  }, [fetchNotificationPreferences]);
 
-  // State Agent Operational Preferences State
-  const [autoEscalateAdmin, setAutoEscalateAdmin] = useState(true);
-  const [stateAuditAlerts, setStateAuditAlerts] = useState(true);
-  const [districtPerformanceAlerts, setDistrictPerformanceAlerts] = useState(true);
+  // Synchronized Pincode & Field Agent Alert Toggles
+  const fieldVisitAlerts = notificationPreferences.fieldVisitAlerts;
+  const vendorKycAlerts = notificationPreferences.vendorKycAlerts;
+  const targetTaskAlerts = notificationPreferences.targetTaskAlerts;
+
+  const setFieldVisitAlerts = (val: boolean) => updateNotificationPreferences({ fieldVisitAlerts: val });
+  const setVendorKycAlerts = (val: boolean) => updateNotificationPreferences({ vendorKycAlerts: val });
+  const setTargetTaskAlerts = (val: boolean) => updateNotificationPreferences({ targetTaskAlerts: val });
+
+  // Synchronized State Agent Operational Preferences
+  const autoEscalateAdmin = notificationPreferences.autoEscalateAdmin;
+  const stateAuditAlerts = notificationPreferences.stateAuditAlerts;
+  const districtPerformanceAlerts = notificationPreferences.districtPerformanceAlerts;
+
+  const setAutoEscalateAdmin = (val: boolean) => updateNotificationPreferences({ autoEscalateAdmin: val });
+  const setStateAuditAlerts = (val: boolean) => updateNotificationPreferences({ stateAuditAlerts: val });
+  const setDistrictPerformanceAlerts = (val: boolean) => updateNotificationPreferences({ districtPerformanceAlerts: val });
 
   const handleSoundTest = () => {
     triggerSound();

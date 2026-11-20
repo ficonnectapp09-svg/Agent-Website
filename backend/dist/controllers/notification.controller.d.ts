@@ -3,4 +3,6 @@ export declare const getNotifications: (req: Request, res: Response) => Promise<
 export declare const markRead: (req: Request, res: Response) => Promise<Response<any, Record<string, any>>>;
 export declare const markAllRead: (req: Request, res: Response) => Promise<Response<any, Record<string, any>>>;
 export declare const clearNotifications: (req: Request, res: Response) => Promise<Response<any, Record<string, any>>>;
+export declare const getNotificationPreferences: (req: Request, res: Response) => Promise<Response<any, Record<string, any>>>;
+export declare const updateNotificationPreferences: (req: Request, res: Response) => Promise<Response<any, Record<string, any>>>;
 //# sourceMappingURL=notification.controller.d.ts.map

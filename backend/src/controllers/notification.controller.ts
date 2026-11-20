@@ -1,7 +1,49 @@
 import { Request, Response } from 'express';
 import mongoose from 'mongoose';
 import Notification from '../models/Notification';
+import Agent from '../models/Agent';
 import NotificationService from '../services/notification.service';
+
+const DEFAULT_NOTIFICATION_PREFS = {
+  soundProfile: 'chirp' as 'chirp' | 'melody' | 'siren',
+  soundVolume: 0.5,
+  fieldVisitAlerts: true,
+  vendorKycAlerts: true,
+  targetTaskAlerts: true,
+  autoEscalateAdmin: true,
+  stateAuditAlerts: true,
+  districtPerformanceAlerts: true,
+  _updatedAt: 0
+};
+
+function sanitizeNotificationPreferences(raw: any, existing?: any) {
+  const base = {
+    ...DEFAULT_NOTIFICATION_PREFS,
+    ...(existing && typeof existing.toObject === 'function' ? existing.toObject() : (existing || {}))
+  };
+  if (raw && typeof raw === 'object') {
+    if (['chirp', 'melody', 'siren'].includes(raw.soundProfile)) {
+      base.soundProfile = raw.soundProfile;
+    }
+    if (typeof raw.soundVolume === 'number' && !Number.isNaN(raw.soundVolume)) {
+      base.soundVolume = Math.max(0, Math.min(1, Math.round(raw.soundVolume * 20) / 20));
+    }
+    const boolKeys = [
+      'fieldVisitAlerts',
+      'vendorKycAlerts',
+      'targetTaskAlerts',
+      'autoEscalateAdmin',
+      'stateAuditAlerts',
+      'districtPerformanceAlerts'
+    ] as const;
+    for (const key of boolKeys) {
+      if (typeof raw[key] === 'boolean') {
+        (base as any)[key] = raw[key];
+      }
+    }
+  }
+  return base;
+}
 
 // Helper to construct receiver match query for both string and ObjectId
 function buildReceiverFilter(agentId: string) {
@@ -128,6 +170,66 @@ export const clearNotifications = async (req: Request, res: Response) => {
     });
   } catch (error) {
     console.error('Clear notifications error:', error);
+    return res.status(500).json({ message: 'Internal server error' });
+  }
+};
+
+// GET /api/notifications/preferences
+export const getNotificationPreferences = async (req: Request, res: Response) => {
+  try {
+    const agentId = (req as any).agent?.agentId;
+    if (!agentId) return res.status(401).json({ message: 'Unauthorized' });
+
+    const agent = await Agent.findById(agentId).select('notificationPreferences').lean();
+    if (!agent) return res.status(404).json({ message: 'Agent not found' });
+
+    const preferences = sanitizeNotificationPreferences((agent as any).notificationPreferences);
+    return res.status(200).json({ notificationPreferences: preferences });
+  } catch (error) {
+    console.error('Get notification preferences error:', error);
+    return res.status(500).json({ message: 'Internal server error' });
+  }
+};
+
+// PUT /api/notifications/preferences
+export const updateNotificationPreferences = async (req: Request, res: Response) => {
+  try {
+    const agentId = (req as any).agent?.agentId;
+    if (!agentId) return res.status(401).json({ message: 'Unauthorized' });
+
+    const agent = await Agent.findById(agentId).select('email phone notificationPreferences').lean();
+    if (!agent) return res.status(404).json({ message: 'Agent not found' });
+
+    const incoming = req.body?.notificationPreferences || req.body || {};
+    const merged = sanitizeNotificationPreferences(incoming, (agent as any).notificationPreferences);
+    merged._updatedAt = Date.now();
+
+    await Agent.findByIdAndUpdate(
+      agentId,
+      { $set: { notificationPreferences: merged, updatedAt: new Date() } },
+      { new: true }
+    );
+
+    // Also sync to users collection for consistent cross-collection visibility
+    try {
+      const db = mongoose.connection.db;
+      if (db && (agent.email || agent.phone)) {
+        const orQuery: any[] = [];
+        if (agent.email) orQuery.push({ email: String(agent.email).toLowerCase() });
+        if (agent.phone) orQuery.push({ phone: agent.phone });
+        await db.collection('users').updateOne(
+          { $or: orQuery },
+          { $set: { notificationPreferences: merged } }
+        );
+      }
+    } catch (_) {}
+
+    return res.status(200).json({
+      message: 'Notification preferences saved.',
+      notificationPreferences: merged
+    });
+  } catch (error) {
+    console.error('Update notification preferences error:', error);
     return res.status(500).json({ message: 'Internal server error' });
   }
 };

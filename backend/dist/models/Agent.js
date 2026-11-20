@@ -103,6 +103,17 @@ const agentSchema = new mongoose_1.Schema({
         accountNumber: { type: String, default: '' },
         ifscCode: { type: String, default: '' }
     },
+    notificationPreferences: {
+        soundProfile: { type: String, enum: ['chirp', 'melody', 'siren'], default: 'chirp' },
+        soundVolume: { type: Number, min: 0, max: 1, default: 0.5 },
+        fieldVisitAlerts: { type: Boolean, default: true },
+        vendorKycAlerts: { type: Boolean, default: true },
+        targetTaskAlerts: { type: Boolean, default: true },
+        autoEscalateAdmin: { type: Boolean, default: true },
+        stateAuditAlerts: { type: Boolean, default: true },
+        districtPerformanceAlerts: { type: Boolean, default: true },
+        _updatedAt: { type: Number, default: 0 }
+    },
     createdAt: { type: Date, default: Date.now },
     updatedAt: { type: Date, default: Date.now }
 }, {

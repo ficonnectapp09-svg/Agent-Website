@@ -80,6 +80,17 @@ export interface IAgent extends Document {
         accountNumber: string;
         ifscCode: string;
     };
+    notificationPreferences?: {
+        soundProfile?: 'chirp' | 'melody' | 'siren';
+        soundVolume?: number;
+        fieldVisitAlerts?: boolean;
+        vendorKycAlerts?: boolean;
+        targetTaskAlerts?: boolean;
+        autoEscalateAdmin?: boolean;
+        stateAuditAlerts?: boolean;
+        districtPerformanceAlerts?: boolean;
+        _updatedAt?: number;
+    };
     createdAt: Date;
     updatedAt: Date;
     comparePassword(password: string): Promise<boolean>;

@@ -1057,7 +1057,8 @@ const updateProfile = async (req, res) => {
         const allowedFields = [
             'name', 'phone', 'mobile', 'territory', 'assignedTerritory', 'address', 'fullAddress',
             'alternateMobile', 'altPhone', 'preferredLanguage', 'bloodGroup', 'profilePhoto',
-            'vehicleDetails', 'bankDetails', 'dob', 'gender', 'qualification', 'experience', 'previousCompany'
+            'vehicleDetails', 'bankDetails', 'dob', 'gender', 'qualification', 'experience', 'previousCompany',
+            'notificationPreferences'
         ];
         const updates = {};
         for (const field of allowedFields) {
@@ -1137,6 +1138,44 @@ const updateProfile = async (req, res) => {
         const currentAgent = await Agent_1.default.findById(agentId);
         if (!currentAgent)
             return res.status(404).json({ message: 'Agent not found' });
+        // Safely merge notificationPreferences so partial updates never overwrite unrelated preferences
+        if (updates.notificationPreferences && typeof updates.notificationPreferences === 'object') {
+            const incoming = updates.notificationPreferences;
+            const existing = (currentAgent.notificationPreferences && typeof currentAgent.notificationPreferences.toObject === 'function')
+                ? currentAgent.notificationPreferences.toObject()
+                : (currentAgent.notificationPreferences || {});
+            const mergedPrefs = {
+                soundProfile: existing.soundProfile || 'chirp',
+                soundVolume: typeof existing.soundVolume === 'number' ? existing.soundVolume : 0.5,
+                fieldVisitAlerts: existing.fieldVisitAlerts !== false,
+                vendorKycAlerts: existing.vendorKycAlerts !== false,
+                targetTaskAlerts: existing.targetTaskAlerts !== false,
+                autoEscalateAdmin: existing.autoEscalateAdmin !== false,
+                stateAuditAlerts: existing.stateAuditAlerts !== false,
+                districtPerformanceAlerts: existing.districtPerformanceAlerts !== false,
+            };
+            if (['chirp', 'melody', 'siren'].includes(incoming.soundProfile)) {
+                mergedPrefs.soundProfile = incoming.soundProfile;
+            }
+            if (typeof incoming.soundVolume === 'number' && !Number.isNaN(incoming.soundVolume)) {
+                mergedPrefs.soundVolume = Math.max(0, Math.min(1, Math.round(incoming.soundVolume * 20) / 20));
+            }
+            const boolKeys = [
+                'fieldVisitAlerts',
+                'vendorKycAlerts',
+                'targetTaskAlerts',
+                'autoEscalateAdmin',
+                'stateAuditAlerts',
+                'districtPerformanceAlerts'
+            ];
+            for (const key of boolKeys) {
+                if (typeof incoming[key] === 'boolean') {
+                    mergedPrefs[key] = incoming[key];
+                }
+            }
+            mergedPrefs._updatedAt = Date.now();
+            updates.notificationPreferences = mergedPrefs;
+        }
         // If updating territory for a District Agent, ensure no other active District Agent exists in that district
         if ((currentAgent.role === 'district' || updates.role === 'district') && (updates.assignedTerritory || updates.territory)) {
             const at = updates.assignedTerritory || updates.territory;
@@ -1177,6 +1216,8 @@ const updateProfile = async (req, res) => {
                     userUpdates.bloodGroup = updates.bloodGroup;
                 if (updates.profilePhoto)
                     userUpdates.profilePhoto = updates.profilePhoto;
+                if (updates.notificationPreferences)
+                    userUpdates.notificationPreferences = updates.notificationPreferences;
                 if (updates.vehicleDetails)
                     userUpdates.vehicleDetails = updates.vehicleDetails;
                 if (updates.bankDetails) {
